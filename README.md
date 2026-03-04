@@ -18,3 +18,6 @@ This repository contains the final project for OIT367: Business Intelligence wit
 ## Team
 
 - Shivam Kalkar (kalkar@stanford.edu)
+- Kevin Stephen (kevintstephen@gmail.com)
+- Andy Parker (andrew.ca.parker@gmail.com)
+- Serena

@@ -1,0 +1,13 @@
+Metric,Value
+Benchmark MDD,-26.63%
+Point Est (% beating BM),9.7%
+95% CI Lower,4.4%
+95% CI Upper,15.0%
+Binomial p-value,0.0000
+Binomial sig,***
+T-test p-value,0.0000
+T-test sig,***
+Wilcoxon p-value,0.0000
+Wilcoxon sig,***
+Bootstrap p-value,0.0000
+Bootstrap sig,***

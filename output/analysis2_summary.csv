@@ -1,0 +1,26 @@
+Metric,Value
+Monthly Hit Rate - Point Estimate,49.3%
+Monthly Hit Rate - 95% CI Lower,48.1%
+Monthly Hit Rate - 95% CI Upper,50.5%
+Monthly Hit Rate - T-test p,0.2398
+Monthly Hit Rate - T-test sig,ns
+Monthly Hit Rate - Wilcoxon p,0.3533
+Monthly Hit Rate - Wilcoxon sig,ns
+Monthly Hit Rate - Bootstrap p,0.2472
+Monthly Hit Rate - Bootstrap sig,ns
+3M Rolling - Point Estimate,49.1%
+3M Rolling - 95% CI Lower,47.3%
+3M Rolling - 95% CI Upper,51.0%
+3M Rolling - T-test p,0.3474
+3M Rolling - Sig,ns
+6M Rolling - Point Estimate,46.2%
+6M Rolling - 95% CI Lower,43.8%
+6M Rolling - 95% CI Upper,48.5%
+6M Rolling - T-test p,0.0020
+6M Rolling - Sig,**
+Down-Month Hit Rate - Point Estimate,49.7%
+Down-Month Hit Rate - 95% CI Lower,47.1%
+Down-Month Hit Rate - 95% CI Upper,52.3%
+Down-Month Hit Rate - T-test p,0.8449
+Down-Month Hit Rate - Sig,ns
+Number of Down Months,20

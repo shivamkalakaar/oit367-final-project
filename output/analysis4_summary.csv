@@ -1,0 +1,22 @@
+Metric,Value
+Threshold (bottom 5%),-5.39%
+N Worst Months,3
+Avg Benchmark Return,-8.70%
+Avg Honoree Return,-7.31%
+Avg Excess - Point Est,1.39%
+Avg Excess - CI Lower,0.52%
+Avg Excess - CI Upper,2.27%
+T-test excess > 0 - p,0.0027
+T-test sig,**
+Wilcoxon - p,0.0039
+Wilcoxon sig,**
+Binomial hit > 50% - p,0.0118
+Binomial sig,*
+Bootstrap excess p,0.0012
+Bootstrap sig,**
+Hit Rate - Point Est,59.3%
+Hit Rate - CI Lower,53.1%
+Hit Rate - CI Upper,65.2%
+Breadth - Point Est,67.0
+Breadth - CI Lower,60.0
+Breadth - CI Upper,71.0

@@ -1,11 +1,14 @@
 Analysis,Point_Estimate,CI_95_Lower,CI_95_Upper,Primary_p_value,Significance
-1. Downside Resilience — % stocks beating BM MDD,9.7%,4.4%,15.0%,0.0000,***
-2. Monthly Hit Rate,49.3%,48.1%,50.5%,0.2398,ns
-2. 3-Month Rolling Hit Rate,49.1%,47.3%,51.0%,0.3474,ns
-2. 6-Month Rolling Hit Rate,46.2%,43.8%,48.5%,0.0020,**
-2. Down-Month Hit Rate,49.7%,47.1%,52.3%,0.8449,ns
-3. Upside Capture > 100% (nested bootstrap),47.7%,27.4%,64.6%,0.5731,ns
-3. Downside Capture < 100% (nested bootstrap),54.6%,33.6%,72.6%,0.2929,ns
-4. Tail-Risk Excess Return (avg worst months),1.39%,0.52%,2.27%,0.0027,**
-4. Tail-Risk Hit Rate,59.3%,53.1%,65.2%,0.0118,*
-4. Tail-Risk Breadth,67.0/113,60.0,71.0,N/A,N/A
+1. Downside: % stocks beating BM max drawdown,9.7%,4.4%,15.0%,0.0000,***
+1. Downside: % shorter underwater than BM,51.3%,42.5%,61.1%,0.8509,ns
+1. Downside: % faster recovery than BM,64.3%,,,0.0225,*
+2. Monthly Hit Rate,49.3%,,,0.2398,ns
+2. 3-Month Rolling Hit Rate,49.1%,,,0.3474,ns
+2. 6-Month Rolling Hit Rate,46.2%,,,0.0020,**
+2. Down-Month Hit Rate,49.7%,,,0.8449,ns
+3. Upside Capture > 100% (bootstrap),47.8%,27.4%,65.5%,0.5666,ns
+3. Downside Capture < 100% (bootstrap),54.5%,32.7%,72.6%,0.2983,ns
+4. Tail-Risk Excess Return,1.39%,0.51%,2.27%,0.0027,**
+4. Tail-Risk Hit Rate,59.3%,53.4%,65.2%,0.0118,*
+4. Tail-Risk Breadth,67/113,60,71,,
+4. Drawdown Clustering (corr down vs all),0.163 vs 0.242,,,0.0000,***

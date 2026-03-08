@@ -1,9 +1,0 @@
-Sectors,N_Stocks,Avg_Max_Drawdown,Avg_Monthly_Hit_Rate,Avg_Upside_Capture,Avg_Downside_Capture,Avg_Down_Month_HR,Avg_Worst_Month_HR
-Utilities,5,-0.3724,0.5233,0.5882,0.5617,0.61,0.7333
-Industrials,25,-0.3751,0.5187,1.134,1.055,0.47,0.6
-Information Technology,22,-0.4842,0.5015,1.3756,1.3513,0.4591,0.5
-Financials,13,-0.3681,0.4936,0.9743,0.8964,0.5308,0.5897
-Consumer Discretionary,13,-0.5462,0.4782,1.2873,1.313,0.4654,0.4615
-Health Care,13,-0.4124,0.4744,0.737,0.6655,0.5,0.6667
-Materials,4,-0.4175,0.45,0.8785,0.9134,0.475,0.5833
-Consumer Staples,11,-0.4036,0.4485,0.4223,0.4031,0.55,0.7879

@@ -234,17 +234,9 @@ ci_lo_mdd  = np.percentile(boot_mdd, 2.5)
 ci_hi_mdd  = np.percentile(boot_mdd, 97.5)
 pt_mdd     = beats_bm_mdd.mean()
 
-p_binom_mdd           = stats.binomtest(n_beats_mdd, n_stocks, 0.5).pvalue
-tstat_mdd, p_ttest_mdd = stats.ttest_1samp(stock_mdd_vals, bm_mdd)
-ws_mdd, p_wilcox_mdd   = stats.wilcoxon(stock_mdd_vals - bm_mdd)
-p_boot_mdd             = bootstrap_pvalue(boot_mdd, 0.5)
-
 print(f"Benchmark MDD: {bm_mdd*100:.2f}%")
 print(f"Stocks beating BM: {n_beats_mdd}/{n_stocks} ({pt_mdd*100:.1f}%) "
-      f"[{ci_lo_mdd*100:.1f}%, {ci_hi_mdd*100:.1f}%]")
-print(f"  Binomial p={p_binom_mdd:.4f} {sig_stars(p_binom_mdd)} | "
-      f"T-test p={p_ttest_mdd:.4f} {sig_stars(p_ttest_mdd)} | "
-      f"Wilcoxon p={p_wilcox_mdd:.4f} {sig_stars(p_wilcox_mdd)}")
+      f"95% CI [{ci_lo_mdd*100:.1f}%, {ci_hi_mdd*100:.1f}%]")
 
 # ── Time-to-recover & time-underwater ─────────────────────────────────────────
 print("\nComputing time-to-recover and time-underwater...")
@@ -263,25 +255,27 @@ stock_recovery_s = pd.Series(stock_recovery)
 # % of stocks with shorter max-underwater than benchmark
 beats_uw = (stock_uw_s < bm_uw).astype(float)
 n_beats_uw = int(beats_uw.sum())
-p_binom_uw = stats.binomtest(n_beats_uw, len(beats_uw), 0.5).pvalue
 
-# % of stocks with faster recovery than benchmark
+# For histogram and median: only stocks that actually recovered within the sample
 valid_rec = stock_recovery_s.dropna()
+# For the beats comparison: stocks that never recovered are treated as taking
+# np.inf days — always slower than any finite benchmark recovery. This keeps
+# the denominator at the full 113 rather than silently excluding the worst
+# performers who never made it back to a new high.
+rec_for_comp = stock_recovery_s.fillna(np.inf)
 if not np.isnan(bm_recovery):
-    beats_rec    = (valid_rec < bm_recovery).astype(float)
-    n_beats_rec  = int(beats_rec.sum())
-    p_binom_rec  = stats.binomtest(n_beats_rec, len(beats_rec), 0.5).pvalue
+    beats_rec   = (rec_for_comp < bm_recovery).astype(float)
+    n_beats_rec = int(beats_rec.sum())
 else:
-    beats_rec    = pd.Series(dtype=float)
-    n_beats_rec  = 0
-    p_binom_rec  = np.nan
+    beats_rec   = pd.Series(dtype=float)
+    n_beats_rec = 0
 
-# T-tests
-ts_uw, p_uw_t  = stats.ttest_1samp(stock_uw_s.values, bm_uw)
-if not np.isnan(bm_recovery) and len(valid_rec) > 1:
-    ts_rec, p_rec_t = stats.ttest_1samp(valid_rec.values, bm_recovery)
-else:
-    p_rec_t = np.nan
+boot_rec = np.array([
+    beats_rec.values[np.random.randint(0, len(beats_rec), len(beats_rec))].mean()
+    for _ in range(N_BOOTSTRAP)
+]) if len(beats_rec) > 0 else np.array([np.nan])
+ci_rec_lo = np.percentile(boot_rec, 2.5)
+ci_rec_hi = np.percentile(boot_rec, 97.5)
 
 boot_uw = np.array([
     beats_uw.values[np.random.randint(0, len(beats_uw), len(beats_uw))].mean()
@@ -295,14 +289,11 @@ print(f"Median stock: underwater={stock_uw_s.median():.0f} days, "
       f"recovery={valid_rec.median():.0f} days")
 print(f"Stocks with shorter underwater than BM: {n_beats_uw}/{len(beats_uw)} "
       f"({beats_uw.mean()*100:.1f}%) "
-      f"[{ci_uw_lo*100:.1f}%, {ci_uw_hi*100:.1f}%]")
-print(f"  Binomial p={p_binom_uw:.4f} {sig_stars(p_binom_uw)} | "
-      f"T-test p={p_uw_t:.4f} {sig_stars(p_uw_t)}")
+      f"95% CI [{ci_uw_lo*100:.1f}%, {ci_uw_hi*100:.1f}%]")
 if not np.isnan(bm_recovery):
-    print(f"Stocks with faster recovery than BM: {n_beats_rec}/{len(valid_rec)} "
-          f"({beats_rec.mean()*100:.1f}%)")
-    print(f"  Binomial p={p_binom_rec:.4f} {sig_stars(p_binom_rec)} | "
-          f"T-test p={p_rec_t:.4f} {sig_stars(p_rec_t)}")
+    print(f"Stocks with faster recovery than BM: {n_beats_rec}/{len(rec_for_comp)} "
+          f"({beats_rec.mean()*100:.1f}%) "
+          f"95% CI [{ci_rec_lo*100:.1f}%, {ci_rec_hi*100:.1f}%]")
 
 # ── Figures ───────────────────────────────────────────────────────────────────
 fig, axes = plt.subplots(1, 3, figsize=(18, 5))
@@ -317,7 +308,7 @@ ax.set_xlabel("Max Drawdown (%)")
 ax.set_ylabel("Count")
 ax.legend()
 ax.text(0.97, 0.97,
-        f"{pt_mdd*100:.0f}% beat BM\np={p_binom_mdd:.3f} {sig_stars(p_binom_mdd)}",
+        f"{pt_mdd*100:.0f}% beat BM\n95% CI [{ci_lo_mdd*100:.1f}%, {ci_hi_mdd*100:.1f}%]",
         transform=ax.transAxes, ha="right", va="top", fontsize=9,
         bbox=dict(boxstyle="round,pad=0.4", facecolor=BRAND_LIGHT, alpha=0.8))
 
@@ -332,7 +323,7 @@ ax.set_ylabel("Count")
 ax.legend()
 ax.text(0.97, 0.97,
         f"{beats_uw.mean()*100:.0f}% shorter than BM\n"
-        f"p={p_binom_uw:.3f} {sig_stars(p_binom_uw)}",
+        f"95% CI [{ci_uw_lo*100:.1f}%, {ci_uw_hi*100:.1f}%]",
         transform=ax.transAxes, ha="right", va="top", fontsize=9,
         bbox=dict(boxstyle="round,pad=0.4", facecolor=BRAND_LIGHT, alpha=0.8))
 
@@ -347,11 +338,10 @@ n_never = stock_recovery_s.isna().sum()
 ax.set_title(f"Time-to-Recover from Max Drawdown\n({n_never} stocks never recovered)")
 ax.set_xlabel("Trading Days to Recover")
 ax.set_ylabel("Count")
-ax.legend()
+ax.legend(loc="lower right")
 if not np.isnan(bm_recovery):
     ax.text(0.97, 0.97,
-            f"{beats_rec.mean()*100:.0f}% faster than BM\n"
-            f"p={p_binom_rec:.3f} {sig_stars(p_binom_rec)}",
+            f"{beats_rec.mean()*100:.0f}% faster than BM",
             transform=ax.transAxes, ha="right", va="top", fontsize=9,
             bbox=dict(boxstyle="round,pad=0.4", facecolor=BRAND_LIGHT, alpha=0.8))
 plt.suptitle("Analysis 1: Downside Resilience", fontsize=14, fontweight="bold", y=1.02)
@@ -927,7 +917,8 @@ master = pd.DataFrame({
     "CI_95_Lower": [
         f"{ci_lo_mdd*100:.1f}%",
         f"{ci_uw_lo*100:.1f}%",
-        "", "", "", "", "",
+        f"{ci_rec_lo*100:.1f}%" if not np.isnan(ci_rec_lo) else "",
+        "", "", "", "",
         f"{up_ci_lo*100:.1f}%",
         f"{dn_ci_lo*100:.1f}%",
         f"{ci_ex_lo*100:.2f}%",
@@ -938,7 +929,8 @@ master = pd.DataFrame({
     "CI_95_Upper": [
         f"{ci_hi_mdd*100:.1f}%",
         f"{ci_uw_hi*100:.1f}%",
-        "", "", "", "", "",
+        f"{ci_rec_hi*100:.1f}%" if not np.isnan(ci_rec_hi) else "",
+        "", "", "", "",
         f"{up_ci_hi*100:.1f}%",
         f"{dn_ci_hi*100:.1f}%",
         f"{ci_ex_hi*100:.2f}%",
@@ -947,9 +939,9 @@ master = pd.DataFrame({
         "",
     ],
     "Primary_p_value": [
-        f"{p_binom_mdd:.4f}",
-        f"{p_binom_uw:.4f}",
-        f"{p_binom_rec:.4f}" if not np.isnan(p_binom_rec) else "N/A",
+        "",
+        "",
+        "",
         f"{p_hr_t:.4f}",
         f"{results_rolling['3-Month']['p_t']:.4f}",
         f"{results_rolling['6-Month']['p_t']:.4f}",
@@ -962,9 +954,9 @@ master = pd.DataFrame({
         f"{p_corr:.4f}",
     ],
     "Significance": [
-        sig_stars(p_binom_mdd),
-        sig_stars(p_binom_uw),
-        sig_stars(p_binom_rec) if not np.isnan(p_binom_rec) else "N/A",
+        "",
+        "",
+        "",
         sig_stars(p_hr_t),
         sig_stars(results_rolling["3-Month"]["p_t"]),
         sig_stars(results_rolling["6-Month"]["p_t"]),

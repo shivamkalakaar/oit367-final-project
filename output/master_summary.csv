@@ -1,0 +1,14 @@
+Analysis,Point_Estimate,CI_95_Lower,CI_95_Upper,Primary_p_value,Significance
+1. Downside: % stocks beating BM max drawdown,9.7%,4.4%,15.0%,,
+1. Downside: % shorter underwater than BM,51.3%,42.5%,61.1%,,
+1. Downside: % faster recovery than BM,39.8%,31.0%,48.7%,,
+2. Monthly Hit Rate,49.3%,48.1%,50.5%,,
+2. 3-Month Rolling Hit Rate,49.1%,47.3%,50.9%,,
+2. 6-Month Rolling Hit Rate,46.2%,43.8%,48.5%,,
+2. Down-Month Hit Rate,49.7%,47.1%,52.4%,,
+3. Upside Capture > 100% (bootstrap),47.8%,28.3%,65.5%,,
+3. Downside Capture < 100% (bootstrap),54.5%,32.7%,73.5%,,
+4. Tail-Risk Excess Return,1.39%,0.49%,2.26%,,
+4. Tail-Risk Hit Rate,59.3%,53.4%,65.2%,,
+4. Tail-Risk Breadth,67/113,60,71,,
+4. Drawdown Clustering (corr down vs all),0.163 vs 0.242,,,0.0000,***

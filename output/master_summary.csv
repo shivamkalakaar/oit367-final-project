@@ -15,3 +15,11 @@ Analysis,Point_Estimate,CI_95_Lower,CI_95_Upper,Primary_p_value,Significance
 E. Full-Period Batting Average (% beat BM 5yr),49.6%,,,1.0000,ns
 E. Avg Sharpe > BM Sharpe,22.1%,,,0.0000,***
 E. Avg Information Ratio,0.121,,,,
+R1. EW Portfolio MDD vs BM MDD,EW -20.1% vs BM -26.6%,,,,
+R1. EW Portfolio excess in tail months,+1.41%,,,,
+R1. CW Portfolio excess in tail months,+2.26%,,,,
+R2. Mean annualized CAPM alpha,3.770%,1.601%,6.011%,0.0012,**
+R2. % stocks with CAPM alpha > 0,60.2%,,,,
+R2. Mean CAPM beta,0.993,,,,
+R3. Dropout 10%: % runs still positive excess,100.0%,,,,
+R4. Hedge activation threshold (BM mo. return),≤ -9%/month,,,,

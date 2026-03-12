@@ -1,0 +1,4 @@
+Dropout_Rate,Stocks_Removed,Median_Excess_pp,P5_Excess_pp,P95_Excess_pp,Median_HitRate_pct,Pct_Runs_Positive_Excess
+5%,5,1.39,1.222,1.538,59.3,100.0
+10%,11,1.391,1.144,1.63,59.2,100.0
+20%,22,1.373,1.002,1.731,59.3,100.0

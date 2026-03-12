@@ -953,6 +953,386 @@ if len(cty_seg) > 0:
 
 
 # =============================================================================
+# ROBUSTNESS ANALYSES
+# R1: Portfolio-level downside resilience (EW & CW portfolios vs benchmark)
+# R2: CAPM alpha analysis (risk-adjusted performance, factor controls)
+# R3: Survivorship bias sensitivity (random-dropout simulation)
+# R4: Hedge activation threshold (at what market severity does WMEC hedge activate?)
+# =============================================================================
+print("\n" + "=" * 70)
+print("ROBUSTNESS ANALYSES")
+print("=" * 70)
+
+bm_total_ret = bm_cum.iloc[-1] - 1  # needed throughout robustness section
+
+# ── R1. Portfolio-Level Downside Resilience ───────────────────────────────────
+# Stock-vs-index (Analysis 1) is structurally biased: individual stocks can't
+# match a diversified index. This section compares diversified portfolios
+# (EW and cap-weighted) to the benchmark — an apples-to-apples comparison.
+print("\n--- R1: Portfolio-Level Downside Resilience ---")
+
+ew_daily_r    = stock_returns.mean(axis=1)
+ew_monthly_r  = ew_daily_r.resample("ME").apply(lambda x: (1 + x).prod() - 1)
+ew_cum_r      = (1 + ew_daily_r).cumprod()
+ew_mdd_r      = max_drawdown(ew_cum_r)
+ew_uw_r, ew_rec_r = time_underwater(ew_cum_r)
+ew_total_ret  = ew_cum_r.iloc[-1] - 1
+ew_ann_ret_r  = ew_daily_r.mean() * 252
+ew_ann_vol_r  = ew_daily_r.std() * np.sqrt(252)
+ew_sharpe_r   = ew_ann_ret_r / ew_ann_vol_r
+ew_bm_idx     = ew_monthly_r.index.intersection(bm_monthly.index)
+ew_monthly_hr = float((ew_monthly_r.loc[ew_bm_idx] > bm_monthly.loc[ew_bm_idx]).mean())
+
+print(f"Equal-Weighted Honoree Portfolio:")
+print(f"  Total return 2021-2025 : {ew_total_ret*100:.1f}%  vs BM: {bm_total_ret*100:.1f}%")
+print(f"  Ann return / vol / Sharpe: {ew_ann_ret_r*100:.1f}% / {ew_ann_vol_r*100:.1f}% / {ew_sharpe_r:.3f}")
+print(f"  Max Drawdown: {ew_mdd_r*100:.1f}%  vs BM: {bm_mdd*100:.1f}%  "
+      f"({'better' if ew_mdd_r > bm_mdd else 'worse'})")
+print(f"  Max underwater: {ew_uw_r} days  vs BM: {bm_uw} days")
+print(f"  Recovery: {int(ew_rec_r) if not np.isnan(ew_rec_r) else 'never'} days  "
+      f"vs BM: {int(bm_recovery) if not np.isnan(bm_recovery) else 'never'} days")
+print(f"  Monthly hit rate vs BM: {ew_monthly_hr*100:.1f}%")
+
+# EW portfolio performance in tail months
+ew_worst_r  = ew_monthly_r.reindex(worst_months).dropna()
+bm_worst_ew = bm_monthly.loc[ew_worst_r.index]
+ew_excess_worst = (ew_worst_r - bm_worst_ew).mean()
+print(f"  EW Portfolio excess in tail months: {ew_excess_worst*100:+.2f}%")
+
+# Cap-weighted portfolio using Solactive composition weights (loaded at top)
+numeric_wt_cols = [c for c in weights.columns
+                   if c not in ("Ticker_Exch", "Company", "Ticker")
+                   and pd.api.types.is_numeric_dtype(weights[c])]
+has_cap_weights = False
+cw_monthly_hr = None
+if numeric_wt_cols:
+    weight_col = numeric_wt_cols[0]
+    wt_map = weights.dropna(subset=[weight_col]).groupby("Ticker")[weight_col].mean()
+    cw_tickers = [t for t in stock_returns.columns if t in wt_map.index]
+    if len(cw_tickers) >= 20:
+        wt_s    = wt_map.loc[cw_tickers]
+        wt_s    = wt_s / wt_s.sum()
+        cw_daily_r   = stock_returns[cw_tickers].dot(wt_s)
+        cw_monthly_r = cw_daily_r.resample("ME").apply(lambda x: (1 + x).prod() - 1)
+        cw_cum_r     = (1 + cw_daily_r).cumprod()
+        cw_mdd_r     = max_drawdown(cw_cum_r)
+        cw_uw_r, cw_rec_r = time_underwater(cw_cum_r)
+        cw_total_ret = cw_cum_r.iloc[-1] - 1
+        cw_ann_ret_r = cw_daily_r.mean() * 252
+        cw_ann_vol_r = cw_daily_r.std() * np.sqrt(252)
+        cw_sharpe_r  = cw_ann_ret_r / cw_ann_vol_r
+        cw_bm_idx    = cw_monthly_r.index.intersection(bm_monthly.index)
+        cw_monthly_hr = float((cw_monthly_r.loc[cw_bm_idx] > bm_monthly.loc[cw_bm_idx]).mean())
+        cw_worst_r   = cw_monthly_r.reindex(worst_months).dropna()
+        bm_worst_cw  = bm_monthly.loc[cw_worst_r.index]
+        cw_excess_worst = (cw_worst_r - bm_worst_cw).mean()
+        has_cap_weights = True
+        print(f"\nCap-Weighted Honoree Portfolio ({len(cw_tickers)} stocks, "
+              f"using Solactive composition weights):")
+        print(f"  Total return 2021-2025 : {cw_total_ret*100:.1f}%  vs BM: {bm_total_ret*100:.1f}%")
+        print(f"  Ann return / vol / Sharpe: {cw_ann_ret_r*100:.1f}% / "
+              f"{cw_ann_vol_r*100:.1f}% / {cw_sharpe_r:.3f}")
+        print(f"  Max Drawdown: {cw_mdd_r*100:.1f}%  vs BM: {bm_mdd*100:.1f}%")
+        print(f"  Monthly hit rate vs BM: {cw_monthly_hr*100:.1f}%")
+        print(f"  CW Portfolio excess in tail months: {cw_excess_worst*100:+.2f}%")
+    else:
+        print(f"Cap-weighted portfolio: insufficient overlapping tickers ({len(cw_tickers)}); "
+              f"falling back to equal-weighting only.")
+
+# Figure R1: Portfolio cumulative returns + drawdown
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+ax = axes[0]
+bm_rebased = perf["Benchmark_GTR"] / perf["Benchmark_GTR"].iloc[0] * 100
+ax.plot(bm_rebased.index, bm_rebased.values,
+        color=BRAND_GREY, linewidth=2, linestyle="--", label="Benchmark")
+ew_rebased = ew_cum_r / ew_cum_r.iloc[0] * 100
+ax.plot(ew_rebased.index, ew_rebased.values,
+        color=BRAND_BLUE, linewidth=2,
+        label=f"EW Portfolio (monthly HR {ew_monthly_hr*100:.1f}%)")
+if has_cap_weights:
+    cw_rebased = cw_cum_r / cw_cum_r.iloc[0] * 100
+    ax.plot(cw_rebased.index, cw_rebased.values,
+            color=BRAND_GOLD, linewidth=2, linestyle="-.",
+            label=f"CW Portfolio (monthly HR {cw_monthly_hr*100:.1f}%)")
+ax.set_title("Portfolio-Level Cumulative Returns (Base=100)")
+ax.set_ylabel("Index Level")
+ax.legend()
+
+ax = axes[1]
+bm_dd_p = (bm_cum - bm_cum.cummax()) / bm_cum.cummax() * 100
+ew_dd_p = (ew_cum_r - ew_cum_r.cummax()) / ew_cum_r.cummax() * 100
+ax.fill_between(bm_dd_p.index, bm_dd_p, 0, alpha=0.2, color=BRAND_GREY,
+                label=f"BM (MDD {bm_mdd*100:.1f}%)")
+ax.plot(ew_dd_p.index, ew_dd_p, color=BRAND_BLUE, linewidth=1.5,
+        label=f"EW Portfolio (MDD {ew_mdd_r*100:.1f}%)")
+if has_cap_weights:
+    cw_dd_p = (cw_cum_r - cw_cum_r.cummax()) / cw_cum_r.cummax() * 100
+    ax.plot(cw_dd_p.index, cw_dd_p, color=BRAND_GOLD, linewidth=1.5, linestyle="-.",
+            label=f"CW Portfolio (MDD {cw_mdd_r*100:.1f}%)")
+ax.set_title("Portfolio-Level Drawdown Comparison")
+ax.set_ylabel("Drawdown (%)")
+ax.legend()
+plt.suptitle("Robustness 1: Portfolio-Level Analysis (EW & CW vs Benchmark)",
+             fontsize=14, fontweight="bold", y=1.02)
+plt.tight_layout()
+save_fig("figR1_portfolio_comparison.png")
+
+
+# ── R2. CAPM Alpha Analysis (Factor Controls) ─────────────────────────────────
+# Regress each stock's daily returns on benchmark daily returns (OLS).
+# Alpha > 0 = risk-adjusted outperformance after controlling for market exposure.
+# Addresses the critique that raw excess returns may reflect beta, not ethics.
+print("\n--- R2: CAPM Alpha Analysis ---")
+
+alphas_d      = {}
+betas_d       = {}
+alpha_pvals_d = {}
+
+for t in stock_returns.columns:
+    s   = stock_returns[t].dropna()
+    b   = bm_daily.reindex(s.index).dropna()
+    idx = s.index.intersection(b.index)
+    if len(idx) < 100:
+        continue
+    sv, bv = s.loc[idx].values, b.loc[idx].values
+    slope, intercept, _, _, _ = stats.linregress(bv, sv)
+    n       = len(idx)
+    resid   = sv - (intercept + slope * bv)
+    s_resid = resid.std()
+    ssx     = np.sum((bv - bv.mean()) ** 2)
+    se_int  = s_resid * np.sqrt(1/n + bv.mean()**2 / ssx) if ssx > 0 else np.nan
+    t_stat  = intercept / se_int if (se_int and se_int > 0) else 0
+    alphas_d[t]      = intercept * 252   # annualize
+    betas_d[t]       = slope
+    alpha_pvals_d[t] = 2 * (1 - stats.t.cdf(abs(t_stat), df=n - 2))
+
+alpha_s = pd.Series(alphas_d)
+beta_s  = pd.Series(betas_d)
+ap_s    = pd.Series(alpha_pvals_d)
+
+mean_alpha    = alpha_s.mean()
+pct_pos_alpha = (alpha_s > 0).mean()
+pct_sig_pos   = ((alpha_s > 0) & (ap_s < 0.05)).mean()
+ts_alpha, p_alpha   = stats.ttest_1samp(alpha_s.dropna().values, 0)
+ws_alpha, p_alpha_w = stats.wilcoxon(alpha_s.dropna().values)
+
+boot_alpha = np.array([
+    alpha_s.values[np.random.randint(0, len(alpha_s), len(alpha_s))].mean()
+    for _ in range(N_BOOTSTRAP)])
+ci_alpha_lo = np.percentile(boot_alpha, 2.5)
+ci_alpha_hi = np.percentile(boot_alpha, 97.5)
+
+print(f"Mean annualized CAPM alpha : {mean_alpha*100:.3f}% "
+      f"[95% CI: {ci_alpha_lo*100:.3f}%, {ci_alpha_hi*100:.3f}%]")
+print(f"% stocks with alpha > 0    : {pct_pos_alpha*100:.1f}%")
+print(f"% stocks with sig. alpha   : {pct_sig_pos*100:.1f}%  (p<0.05, two-sided)")
+print(f"Mean beta                  : {beta_s.mean():.3f}  "
+      f"[min {beta_s.min():.2f} / max {beta_s.max():.2f}]")
+print(f"T-test (mean alpha vs 0)   : p={p_alpha:.4f} {sig_stars(p_alpha)}")
+print(f"Wilcoxon (median vs 0)     : p={p_alpha_w:.4f} {sig_stars(p_alpha_w)}")
+print(f"Interpretation: {'WMEC honorees show no significant CAPM alpha on average.' if p_alpha >= 0.05 else 'Significant mean alpha detected.'}")
+
+# Add alpha/beta to stock_summary
+stock_summary["CAPM_Alpha_Ann_Pct"] = alpha_s.reindex(tickers).values * 100
+stock_summary["CAPM_Beta"]          = beta_s.reindex(tickers).values
+stock_summary.to_csv(os.path.join(OUTPUT_DIR, "stock_level_results.csv"), index=False)
+
+# Figure R2: Alpha distribution + alpha vs beta scatter
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+ax = axes[0]
+alpha_pct = alpha_s.dropna().values * 100
+ax.hist(alpha_pct, bins=30, color=BRAND_BLUE, alpha=0.75, edgecolor="white")
+ax.axvline(0, color=BRAND_RED, linewidth=2, linestyle="--", label="α = 0 (no edge)")
+ax.axvline(mean_alpha * 100, color=BRAND_GOLD, linewidth=2,
+           label=f"Mean α: {mean_alpha*100:.3f}%")
+ax.axvline(ci_alpha_lo * 100, color=BRAND_GOLD, linewidth=1, linestyle=":",
+           label=f"95% CI [{ci_alpha_lo*100:.3f}%, {ci_alpha_hi*100:.3f}%]")
+ax.axvline(ci_alpha_hi * 100, color=BRAND_GOLD, linewidth=1, linestyle=":")
+ax.set_title("CAPM Alpha Distribution\n(Annualized daily OLS vs. Benchmark)")
+ax.set_xlabel("Annualized Alpha (%)")
+ax.set_ylabel("Count")
+ax.legend(fontsize=8)
+ax.text(0.97, 0.97,
+        f"{pct_pos_alpha*100:.1f}% have α>0\n"
+        f"T-test vs 0: p={p_alpha:.3f} {sig_stars(p_alpha)}",
+        transform=ax.transAxes, ha="right", va="top", fontsize=9,
+        bbox=dict(boxstyle="round,pad=0.4", facecolor=BRAND_LIGHT, alpha=0.8))
+
+ax = axes[1]
+cols_ab = [BRAND_BLUE if a > 0 else BRAND_RED for a in alpha_s.values]
+ax.scatter(beta_s.reindex(alpha_s.index).values, alpha_s.values * 100,
+           c=cols_ab, alpha=0.65, s=50, edgecolors="white")
+ax.axhline(0, color="black", linewidth=1, linestyle="--")
+ax.axvline(1, color=BRAND_GREY, linewidth=1, linestyle="--",
+           alpha=0.5, label="Beta = 1")
+ax.set_xlabel("Beta (market sensitivity)")
+ax.set_ylabel("Annualized Alpha (%)")
+ax.set_title("Alpha vs. Beta\n(Blue = positive alpha, Red = negative)")
+ax.legend(fontsize=8)
+plt.suptitle("Robustness 2: CAPM Alpha Analysis",
+             fontsize=14, fontweight="bold", y=1.02)
+plt.tight_layout()
+save_fig("figR2_capm_alpha.png")
+
+
+# ── R3. Survivorship Bias Sensitivity (Dropout Simulation) ────────────────────
+# We use the 2026 WMEC list to evaluate 2021-2025 (look-ahead/survivorship bias).
+# To bound the impact, we simulate 1,000 random-dropout scenarios at 5%, 10%,
+# and 20% removal rates and test whether the tail-risk finding persists.
+# If even 20% dropout still yields positive excess, the finding is robust.
+print("\n--- R3: Survivorship Bias Sensitivity (Dropout Simulation) ---")
+print(f"Baseline tail-risk finding: {avg_excess*100:+.2f}% excess in {len(worst_months)} worst months")
+print("Simulating random stock dropout (1,000 runs each) to bound survivorship bias...\n")
+
+N_DROPOUT_SIMS = 1_000
+dropout_rates  = [0.05, 0.10, 0.20]
+all_t_arr      = np.array([t for t in stock_monthly.columns
+                            if worst_months[0] in stock_monthly.index])
+dropout_rows   = []
+
+for dr in dropout_rates:
+    n_drop = max(1, int(len(all_t_arr) * dr))
+    te_arr = np.empty(N_DROPOUT_SIMS)
+    th_arr = np.empty(N_DROPOUT_SIMS)
+    for i in range(N_DROPOUT_SIMS):
+        keep    = np.random.choice(all_t_arr, size=len(all_t_arr) - n_drop, replace=False)
+        sw_sub  = stock_monthly.loc[worst_months, keep]
+        te_arr[i] = sw_sub.mean(axis=1).mean() - bm_worst.mean()
+        th_arr[i] = sw_sub.gt(bm_worst, axis=0).mean().mean()
+    p_pos = (te_arr > 0).mean()
+    dropout_rows.append({
+        "Dropout_Rate":             f"{int(dr*100)}%",
+        "Stocks_Removed":           n_drop,
+        "Median_Excess_pp":         round(float(np.median(te_arr) * 100), 3),
+        "P5_Excess_pp":             round(float(np.percentile(te_arr, 5) * 100), 3),
+        "P95_Excess_pp":            round(float(np.percentile(te_arr, 95) * 100), 3),
+        "Median_HitRate_pct":       round(float(np.median(th_arr) * 100), 1),
+        "Pct_Runs_Positive_Excess": round(float(p_pos * 100), 1),
+    })
+    print(f"  Dropout {int(dr*100)}% ({n_drop} stocks removed):  "
+          f"median excess = {np.median(te_arr)*100:+.2f}%  "
+          f"[P5: {np.percentile(te_arr,5)*100:+.2f}%, "
+          f"P95: {np.percentile(te_arr,95)*100:+.2f}%]  |  "
+          f"{p_pos*100:.1f}% of runs still positive")
+
+dropout_df = pd.DataFrame(dropout_rows)
+dropout_df.to_csv(os.path.join(OUTPUT_DIR, "survivorship_sensitivity.csv"), index=False)
+
+# Figure R3: Survivorship dropout bar + CI
+fig, ax = plt.subplots(figsize=(9, 5))
+dr_labels = [r["Dropout_Rate"] for r in dropout_rows]
+medians_d = [r["Median_Excess_pp"] for r in dropout_rows]
+p5s_d     = [r["P5_Excess_pp"]     for r in dropout_rows]
+p95s_d    = [r["P95_Excess_pp"]    for r in dropout_rows]
+
+x_d = np.arange(len(dr_labels))
+bars_d = ax.bar(x_d, medians_d, color=BRAND_BLUE, alpha=0.8,
+                edgecolor="white", label="Median excess (pp)")
+for i, (m, lo, hi) in enumerate(zip(medians_d, p5s_d, p95s_d)):
+    ax.errorbar(i, m, yerr=[[m - lo], [hi - m]],
+                fmt="none", color="black", capsize=7, linewidth=1.5)
+ax.axhline(0, color=BRAND_RED, linewidth=1.5, linestyle="--", label="No excess")
+ax.axhline(avg_excess * 100, color=BRAND_GOLD, linewidth=1.5, linestyle="-.",
+           label=f"Full-sample ({avg_excess*100:.2f}%)")
+ax.set_xticks(x_d)
+ax.set_xticklabels(dr_labels)
+ax.set_xlabel("Simulated Stock Dropout Rate (survivorship-bias proxy)")
+ax.set_ylabel("Median Excess Return in Tail Months (pp)")
+ax.set_title("Survivorship Bias Sensitivity\n(1,000 random-dropout simulations per rate)")
+for i, r in enumerate(dropout_rows):
+    ax.text(i, medians_d[i] + 0.03,
+            f"{r['Pct_Runs_Positive_Excess']:.0f}% positive",
+            ha="center", fontsize=9, fontweight="bold")
+ax.legend()
+plt.tight_layout()
+save_fig("figR3_survivorship_sensitivity.png")
+
+
+# ── R4. Hedge Activation Threshold ────────────────────────────────────────────
+# Practical question: at what monthly benchmark return does the WMEC hedge activate?
+# Sweeps BM return thresholds from -2% to -10% and measures excess/hit-rate.
+# Gives Ethisphere and institutional investors a concrete trigger condition.
+print("\n--- R4: Hedge Activation Threshold ---")
+print("Sweeping BM monthly return thresholds to identify hedge activation point...")
+
+thresholds_r = np.arange(-0.02, -0.105, -0.01)
+hedge_rows   = []
+
+for thr in thresholds_r:
+    months_thr = bm_monthly[bm_monthly <= thr].index
+    if len(months_thr) == 0:
+        continue
+    sw_thr = stock_monthly.reindex(months_thr, axis=0).dropna(how="all", axis=0)
+    bw_thr = bm_monthly.loc[sw_thr.index]
+    exc_thr = sw_thr.mean(axis=1).mean() - bw_thr.mean()
+    hr_thr  = sw_thr.gt(bw_thr, axis=0).mean().mean()
+    hedge_rows.append({
+        "BM_Threshold_pct": round(thr * 100, 0),
+        "N_Months":         len(sw_thr),
+        "Avg_Excess_pp":    round(exc_thr * 100, 3),
+        "Hit_Rate_pct":     round(hr_thr * 100, 1),
+    })
+    print(f"  BM ≤ {thr*100:.0f}%  ({len(sw_thr):2d} months): "
+          f"excess = {exc_thr*100:+.2f}%  |  hit rate = {hr_thr*100:.1f}%")
+
+hedge_df = pd.DataFrame(hedge_rows)
+hedge_df.to_csv(os.path.join(OUTPUT_DIR, "hedge_thresholds.csv"), index=False)
+
+# Identify activation threshold (first point where excess flips positive going deeper)
+pos_exc_rows = hedge_df[hedge_df["Avg_Excess_pp"] > 0]
+activation_thr = float(pos_exc_rows["BM_Threshold_pct"].iloc[-1]) if len(pos_exc_rows) > 0 else np.nan
+print(f"\nHedge appears to activate around BM monthly return ≤ {activation_thr:.0f}%")
+
+# Figure R4: Excess return + hit rate vs threshold
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+ax = axes[0]
+ax.plot(hedge_df["BM_Threshold_pct"], hedge_df["Avg_Excess_pp"],
+        color=BRAND_BLUE, linewidth=2, marker="o", markersize=6)
+ax.fill_between(hedge_df["BM_Threshold_pct"], hedge_df["Avg_Excess_pp"], 0,
+                where=hedge_df["Avg_Excess_pp"] > 0,
+                alpha=0.2, color=BRAND_GREEN, label="Positive excess")
+ax.fill_between(hedge_df["BM_Threshold_pct"], hedge_df["Avg_Excess_pp"], 0,
+                where=hedge_df["Avg_Excess_pp"] <= 0,
+                alpha=0.2, color=BRAND_RED, label="Negative excess")
+ax.axhline(0, color="black", linewidth=1, linestyle="--")
+if not np.isnan(activation_thr):
+    ax.axvline(activation_thr, color=BRAND_GOLD, linewidth=1.5, linestyle="-.",
+               label=f"Activation ≈ {activation_thr:.0f}%/month")
+ax.set_xlabel("Benchmark Monthly Return Threshold (%)")
+ax.set_ylabel("Average Excess Return (pp)")
+ax.set_title("WMEC Hedge: Excess Return by Market Severity")
+ax.invert_xaxis()
+ax.legend(fontsize=8)
+
+ax = axes[1]
+ax.plot(hedge_df["BM_Threshold_pct"], hedge_df["Hit_Rate_pct"],
+        color=BRAND_GOLD, linewidth=2, marker="s", markersize=6)
+ax.axhline(50, color=BRAND_RED, linewidth=1.5, linestyle="--", label="50% (no edge)")
+ax.fill_between(hedge_df["BM_Threshold_pct"], hedge_df["Hit_Rate_pct"], 50,
+                where=hedge_df["Hit_Rate_pct"] > 50,
+                alpha=0.15, color=BRAND_GREEN)
+ax.set_xlabel("Benchmark Monthly Return Threshold (%)")
+ax.set_ylabel("Hit Rate (%)")
+ax.set_title("WMEC Hedge: Hit Rate by Market Severity")
+ax.invert_xaxis()
+ax.legend(fontsize=8)
+for _, row in hedge_df.iterrows():
+    ax.annotate(f"n={int(row['N_Months'])}",
+                xy=(row["BM_Threshold_pct"], row["Hit_Rate_pct"]),
+                xytext=(0, 8), textcoords="offset points",
+                ha="center", fontsize=7, color=BRAND_GREY)
+
+plt.suptitle(f"Robustness 4: Hedge Activation Threshold "
+             f"(activates ≈ BM ≤ {activation_thr:.0f}%/month)",
+             fontsize=14, fontweight="bold", y=1.02)
+plt.tight_layout()
+save_fig("figR4_hedge_threshold.png")
+
+
+# =============================================================================
 # ENHANCED ANALYSES
 # =============================================================================
 print("\n" + "=" * 70)
@@ -1228,6 +1608,14 @@ master = pd.DataFrame({
         "E. Full-Period Batting Average (% beat BM 5yr)",
         "E. Avg Sharpe > BM Sharpe",
         "E. Avg Information Ratio",
+        "R1. EW Portfolio MDD vs BM MDD",
+        "R1. EW Portfolio excess in tail months",
+        "R1. CW Portfolio excess in tail months",
+        "R2. Mean annualized CAPM alpha",
+        "R2. % stocks with CAPM alpha > 0",
+        "R2. Mean CAPM beta",
+        "R3. Dropout 10%: % runs still positive excess",
+        "R4. Hedge activation threshold (BM mo. return)",
     ],
     "Point_Estimate": [
         f"{pt_mdd*100:.1f}%",
@@ -1246,6 +1634,14 @@ master = pd.DataFrame({
         f"{pct_beat_full*100:.1f}%",
         f"{pct_sharpe*100:.1f}%",
         f"{info_ratio.mean():.3f}",
+        f"EW {ew_mdd_r*100:.1f}% vs BM {bm_mdd*100:.1f}%",
+        f"{ew_excess_worst*100:+.2f}%",
+        f"{cw_excess_worst*100:+.2f}%" if has_cap_weights else "N/A (no CW data)",
+        f"{mean_alpha*100:.3f}%",
+        f"{pct_pos_alpha*100:.1f}%",
+        f"{beta_s.mean():.3f}",
+        f"{dropout_rows[1]['Pct_Runs_Positive_Excess']:.1f}%",
+        f"≤ {activation_thr:.0f}%/month" if not np.isnan(activation_thr) else "N/A",
     ],
     "CI_95_Lower": [
         f"{ci_lo_mdd*100:.1f}%",
@@ -1258,6 +1654,9 @@ master = pd.DataFrame({
         f"{ci_whr_lo*100:.1f}%",
         f"{ci_br_lo:.0f}",
         "", "", "", "",
+        "", "", "",
+        f"{ci_alpha_lo*100:.3f}%",
+        "", "", "", "",
     ],
     "CI_95_Upper": [
         f"{ci_hi_mdd*100:.1f}%",
@@ -1269,6 +1668,9 @@ master = pd.DataFrame({
         f"{ci_ex_hi*100:.2f}%",
         f"{ci_whr_hi*100:.1f}%",
         f"{ci_br_hi:.0f}",
+        "", "", "", "",
+        "", "", "",
+        f"{ci_alpha_hi*100:.3f}%",
         "", "", "", "",
     ],
     "Primary_p_value": [
@@ -1288,6 +1690,9 @@ master = pd.DataFrame({
         f"{p_full_bat:.4f}",
         f"{p_sharpe:.4f}",
         "",
+        "", "", "",
+        f"{p_alpha:.4f}",
+        "", "", "", "",
     ],
     "Significance": [
         sig_stars(p_binom_mdd),
@@ -1306,6 +1711,9 @@ master = pd.DataFrame({
         sig_stars(p_full_bat),
         sig_stars(p_sharpe),
         "",
+        "", "", "",
+        sig_stars(p_alpha),
+        "", "", "", "",
     ],
 })
 master.to_csv(os.path.join(OUTPUT_DIR, "master_summary.csv"), index=False)
@@ -1315,8 +1723,17 @@ print(f"""
 Significance: *** p<0.001 | ** p<0.01 | * p<0.05 | . p<0.10 | ns = not significant
 
 Output ({OUTPUT_DIR}/):
-  CSVs   : master_summary.csv, stock_level_results.csv, segment_results.csv
-  Figures: fig0 (index), fig1 (resilience), fig2 (consistency),
-           fig3 (capture), fig4 (tail risk), fig5a/5b/5c (segmentation)
+  CSVs   : master_summary.csv, stock_level_results.csv (+ CAPM_Alpha/Beta),
+           segment_results.csv, year_by_year.csv, tail_risk_thresholds.csv,
+           survivorship_sensitivity.csv, hedge_thresholds.csv
+  Figures (original):
+    fig0 (index), fig1 (resilience), fig2 (consistency),
+    fig3 (capture), fig4 (tail risk), fig5a/5b/5c (segmentation)
+  Figures (enhanced):
+    fig6 (drawdown timeline), fig7 (rolling 12m excess), fig8 (year-by-year),
+    fig9 (monthly heatmap), fig10 (risk-return), fig11 (tail thresholds)
+  Figures (robustness):
+    figR1 (portfolio EW/CW vs BM), figR2 (CAPM alpha),
+    figR3 (survivorship dropout), figR4 (hedge threshold)
 DONE.
 """)

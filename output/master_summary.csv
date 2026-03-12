@@ -11,4 +11,8 @@ Analysis,Point_Estimate,CI_95_Lower,CI_95_Upper,Primary_p_value,Significance
 4. Tail-Risk Excess Return,1.39%,0.49%,2.26%,,
 4. Tail-Risk Hit Rate,59.3%,53.4%,65.2%,,
 4. Tail-Risk Breadth,67/113,60,71,,
-4. Drawdown Clustering (corr down vs all),0.163 vs 0.242,,,0.0000,***
+4. Drawdown Clustering (corr down vs all),0.163 vs 0.242,,,0.0,***
+6. LASSO Logistic CV Accuracy,56.7%,,,,
+6. Random Forest CV Accuracy,58.6%,,,,
+6. Gradient Boosting CV Accuracy,58.5%,,,,
+6. Majority-Class Baseline,61.1%,,,,
